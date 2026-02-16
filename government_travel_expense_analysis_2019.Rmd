@@ -1,0 +1,156 @@
+---
+title: "Government Travel Expense Analysis - 2019"
+author: "Luiza Constâncio"
+date: "2026-02-16"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+```
+
+# BUSINESS TRAVEL EXPENSE ANALYSIS - 2019
+Data Source: Brazilian Transparency Portal
+
+# 1. Problem Definition
+
+Objective: Analyze government travel expenses to identify spending patterns and seasonal trends.
+
+Business Questions:
+1. What is the total amount spent per government department?
+2. What is the total amount spent per city?
+3. How many trips occurred per month?
+
+# 2. Data Acquisition
+
+```{r}
+travel <- read.csv(
+  "C:/Users/Luiza/Downloads/2019_Viagem.csv",
+  sep = ";",
+  dec = ",",
+  fileEncoding = "latin1"
+)
+
+dim(travel)
+```
+
+The dataset contains `r dim(travel)[1]` records and `r dim(travel)[2]` variables.
+
+# 3. Data Transformation
+
+```{r}
+travel$data_inicio <- as.Date(
+  travel$Período...Data.de.início,
+  format = "%d/%m/%Y"
+)
+
+travel$year_month <- format(travel$data_inicio, "%Y-%m")
+```
+
+# 4. Exploratory Data Analysis (EDA)
+
+```{r}
+summary(travel$Valor.passagens)
+sd(travel$Valor.passagens)
+hist(travel$Valor.passagens)
+boxplot(travel$Valor.passagens)
+colSums(is.na(travel))
+
+travel$Situação <- factor(travel$Situação)
+prop.table(table(travel$Situação)) * 100
+```
+
+# 5. Results
+
+## 5.1 Total Ticket Expenses by Government Department
+
+```{r}
+expenses_by_department <- travel %>%
+  group_by(Nome.do.órgão.superior) %>%
+  summarise(total_expense = sum(Valor.passagens, na.rm = TRUE)) %>%
+  arrange(desc(total_expense))
+
+top15_departments <- expenses_by_department %>%
+  slice_head(n = 15)
+
+top15_departments
+```
+
+```{r}
+ggplot(top15_departments,
+       aes(x = reorder(Nome.do.órgão.superior, total_expense),
+           y = total_expense)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(
+    title = "Top 15 Departments by Ticket Expenses",
+    x = "Department",
+    y = "Total Expense"
+  )
+```
+
+## 5.2 Total Ticket Expenses by Destination City
+
+```{r}
+expenses_by_city <- travel %>%
+  group_by(Destinos) %>%
+  summarise(total_expense = sum(Valor.passagens, na.rm = TRUE)) %>%
+  arrange(desc(total_expense))
+
+top15_cities <- expenses_by_city %>%
+  slice_head(n = 15)
+
+top15_cities
+```
+
+```{r}
+ggplot(top15_cities,
+       aes(x = reorder(Destinos, total_expense),
+           y = total_expense)) +
+  geom_bar(stat = "identity", fill = "#0ba791") +
+  coord_flip() +
+  labs(
+    title = "Top 15 Destination Cities by Ticket Expenses",
+    x = "Destination",
+    y = "Total Expense"
+  )
+```
+
+## 5.3 Number of Trips per Month
+
+```{r}
+trips_per_month <- travel %>%
+  group_by(year_month) %>%
+  summarise(trip_count = n_distinct(Identificador.do.processo.de.viagem)) %>%
+  arrange(year_month)
+
+trips_per_month
+```
+
+```{r}
+ggplot(trips_per_month,
+       aes(x = year_month,
+           y = trip_count,
+           group = 1)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Number of Trips per Month",
+    x = "Year-Month",
+    y = "Number of Trips"
+  )
+```
+
+# 6. Key Insights
+
+- The dataset contains 756,704 travel records.
+- 97.7% of trips were completed.
+- The average ticket expense per trip was 590.1, with a high standard deviation of 1278.5.
+- The Ministry of Education was the highest-spending department, exceeding 100 million in ticket expenses.
+- Brasília/DF was the most expensive destination, totaling approximately 88 million.
+- November recorded the highest number of trips, while January had the lowest.
+
+Overall, the analysis reveals spending concentration patterns, strong geographic centralization, and seasonal travel variation.
+
